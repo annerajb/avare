@@ -1598,7 +1598,7 @@ public class LocationView extends View implements MultiTouchObjectCanvas<Object>
                 /*
                  * Now draw in background
                  */
-                gpsTile = new Tile(mPref, lon, lat, (double)mScale.downSample());
+                gpsTile = new Tile(mContext, mPref, lon, lat, (double)mScale.downSample());
 
             	offsets[0] = gpsTile.getOffsetX(lon);
             	offsets[1] = gpsTile.getOffsetY(lat);
@@ -1616,7 +1616,7 @@ public class LocationView extends View implements MultiTouchObjectCanvas<Object>
                 movex = pan.getTileMoveXWithoutTear();
                 movey = pan.getTileMoveYWithoutTear();
                 
-                centerTile = new Tile(gpsTile, movex, movey);
+                centerTile = new Tile(mContext, mPref, gpsTile, movex, movey);
     
                 /*
                  * Neighboring tiles with center and pan
@@ -1956,7 +1956,7 @@ public class LocationView extends View implements MultiTouchObjectCanvas<Object>
                 /*
                  * Elevation tile to find AGL and ground proximity warning
                  */
-                Tile t = new Tile(mPref, lon, lat);
+                Tile t = new Tile(mContext, mPref, lon, lat);
 
                 mService.setElevationTile(t);
                 BitmapHolder elevBitmap = mService.getElevationBitmap();

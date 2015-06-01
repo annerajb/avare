@@ -50,6 +50,7 @@ public class Preferences {
     public static final double DISTANCE_TO_AUTO_LOAD_PLATE = 3.0;
     
     public static final String IMAGE_EXTENSION = ".png";
+    public static final String IMAGE_EXTENSION_TILE = ".jpg";
     
     /*
      * MAX number of elements

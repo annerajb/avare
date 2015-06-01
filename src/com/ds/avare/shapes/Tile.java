@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012, Apps4Av Inc. (apps4av.com) 
+Copyright (c) 2015, Apps4Av Inc. (apps4av.com) 
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -12,6 +12,9 @@ Redistribution and use in source and binary forms, with or without modification,
 
 package com.ds.avare.shapes;
 
+import android.content.Context;
+
+import com.ds.avare.R;
 import com.ds.avare.position.Epsg900913;
 import com.ds.avare.storage.Preferences;
 import com.ds.avare.utils.BitmapHolder;
@@ -23,6 +26,11 @@ import com.ds.avare.utils.NetworkHelper;
  * The class that holds all info about a tile
  */
 public class Tile {
+	
+	// This is from arrays.xml. This should not be retrieved "cleverly" from arrays.xml 
+	// because translation will mess it up
+	private static final String ELEVATION_INDEX = "6";
+	
     /**
      * 
      * Center tile is most important aspect of this database.
@@ -44,12 +52,13 @@ public class Tile {
     private int mCol;
     private double mZoom;
     private Epsg900913 mProj;
-    private Preferences mPref;
+    private String mChartIndex;
+    private String mCycle;
 
     /**
      * Common function for all tile constructors.
      */
-    private void setup() {
+    private void setup(Preferences pref) {
         mLonUL = mProj.getLonUpperLeft();
         mLatUL = mProj.getLatUpperLeft();
         mLonLR = mProj.getLonLowerRight();
@@ -63,7 +72,8 @@ public class Tile {
         mRow = mProj.getTiley();
         mCol = mProj.getTilex();
         mWidth = BitmapHolder.WIDTH;
-        mHeight = BitmapHolder.HEIGHT;    	
+        mHeight = BitmapHolder.HEIGHT;
+        mCycle = NetworkHelper.getVersion(pref.getCycleAdjust());
     }
     
     /**
@@ -72,29 +82,15 @@ public class Tile {
      * @param row
      * @param col
      */
-    public Tile(Tile t, int col, int row) {
-    	// Make a new tile from a give center tile, at an offset of row/col
+    public Tile(Context ctx, Preferences pref, Tile t, int col, int row) {
+    	mChartIndex = t.mChartIndex;
+        mZoom = t.getZoom();
+    	// Make a new tile from a given center tile, at an offset of row/col
     	Epsg900913 proj = t.getProjection();
     	int tx = proj.getTilex() + col;
     	int ty = proj.getTiley() - row; // row increase up
-        mZoom = t.getZoom();
     	mProj = new Epsg900913(tx, ty, mZoom);
-    	setup();
-        mPref = t.mPref;
-    }
-
-    /**
-     * Get a tile for a particular position for elevation
-     * @param pref
-     * @param lon
-     * @param lat
-     * @param chart
-     */
-    public Tile(Preferences pref, double lon, double lat) {
-        mZoom = 10;
-    	mProj = new Epsg900913(lat, lon, mZoom);
-    	setup();
-        mPref = pref;
+    	setup(pref);
     }
 
     /**
@@ -104,11 +100,38 @@ public class Tile {
      * @param lat
      * @param chart
      */
-    public Tile(Preferences pref, double lon, double lat, double zoom) {
-        mZoom = 10 - zoom;
+    public Tile(Context ctx, Preferences pref, double lon, double lat, double zoom) {
+    	mChartIndex = pref.getChartType();
+    	/*
+    	 * Zoom appropriate to the given chart type.
+    	 * Max zoom is specified in arrays.xml, from where we find the 
+    	 * max zoom for this tile of this chart type.
+    	 * Zoom will go from max to max - zoom of scale
+    	 */
+        mZoom = Integer.valueOf(ctx.getResources().getStringArray(R.array.ChartMaxZooms)
+        		[Integer.valueOf(mChartIndex)]) - zoom;
     	mProj = new Epsg900913(lat, lon, mZoom);
-    	setup();
-        mPref = pref;
+    	setup(pref);
+    }
+    
+    /**
+     * Get a tile for a particular position for elevation. Use this function for elevation only for AGL
+     * @param pref
+     * @param lon
+     * @param lat
+     * @param chart
+     */
+    public Tile(Context ctx, Preferences pref, double lon, double lat) {
+    	mChartIndex = ELEVATION_INDEX;
+    	/*
+    	 * Zoom appropriate to the given chart type.
+    	 * Max zoom is specified in arrays.xml, from where we find the 
+    	 * max zoom for this tile of this chart type.
+    	 */
+        mZoom = Integer.valueOf(ctx.getResources().getStringArray(R.array.ChartMaxZooms)
+        		[Integer.valueOf(mChartIndex)]); // use max zoom for elevation tiles used for AGL
+    	mProj = new Epsg900913(lat, lon, mZoom);
+    	setup(pref);
     }
 
     /**
@@ -126,6 +149,7 @@ public class Tile {
 
     /**
      * @return
+     * longitude per pixels for this tile
      */
     public double getPx() {
         return(-((mLonUL - mLonUR)  + (mLonLL - mLonLR)) / (mWidth * 2));
@@ -133,6 +157,7 @@ public class Tile {
     
     /**
      * @return
+     * latitude per pixels for this tile
      */
     public double getPy() {
         return(-((mLatUL - mLatLL)  + (mLatUR - mLatLR)) / (mHeight * 2));
@@ -221,18 +246,34 @@ public class Tile {
         return  mCol + colm;
     }
     
+    /**
+     * 
+     * @return
+     */
     public double getLatitude() {
         return mLatC;
     }
     
+    /**
+     * 
+     * @return
+     */
     public double getLongitude() {
         return mLonC;
     }
     
+    /**
+     * 
+     * @return
+     */
     private Epsg900913 getProjection() {
     	return mProj;
     }
     
+    /**
+     * 
+     * @return
+     */
     private double getZoom() {
     	return mZoom;
     }
@@ -244,8 +285,8 @@ public class Tile {
     	int coll = getNeighborCol(col);
     	int rowl = getNeighborRow(row);
     	// form /tiles/cycle/type/all/zoom/col/row.png
-    	String name = "tiles/" + NetworkHelper.getVersion(mPref.getCycleAdjust()) + "/" + mPref.getChartType() 
-    			+ "/all/" + (int)mZoom +  "/" + coll + "/" + rowl + Preferences.IMAGE_EXTENSION; 
+    	String name = "tiles/" + mCycle + "/" + mChartIndex 
+    			+ "/all/" + (int)mZoom +  "/" + coll + "/" + rowl + Preferences.IMAGE_EXTENSION_TILE; 
         return(name);
     }
 

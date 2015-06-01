@@ -800,6 +800,19 @@ Redistribution and use in source and binary forms, with or without modification,
         <item>9</item>
     </string-array>    
 
+    <string-array name="ChartMaxZooms">
+        <item>10</item>
+        <item>11</item>
+        <item>9</item>
+        <item>10</item>
+        <item>9</item>
+        <item>11</item>
+        <item>10</item>
+        <item>10</item>
+        <item>10</item>
+        <item>10</item>
+    </string-array>    
+    
     <string-array name="ChartDbNames">
         <item>maps.sec.db</item>
         <item>maps.tac.db</item>
