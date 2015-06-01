@@ -461,6 +461,14 @@ public class NetworkHelper {
      * 
      * @return
      */
+    public static String getVersion(int offset) {
+    	return findCycleOffset(getVersion("", "", null), offset);
+    }
+
+    /**
+     * 
+     * @return
+     */
     public static String getVersion(String root, String name, boolean[] networkState) {
         GregorianCalendar now = new GregorianCalendar(TimeZone.getTimeZone("GMT"));
         String netVers = getVersionNetwork(root);

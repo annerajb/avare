@@ -12,9 +12,10 @@ Redistribution and use in source and binary forms, with or without modification,
 
 package com.ds.avare.shapes;
 
+import com.ds.avare.position.Epsg900913;
 import com.ds.avare.storage.Preferences;
 import com.ds.avare.utils.BitmapHolder;
-import com.ds.avare.utils.Helper;
+import com.ds.avare.utils.NetworkHelper;
 
 
 /**
@@ -27,7 +28,6 @@ public class Tile {
      * Center tile is most important aspect of this database.
      * Everything is relative to this tile, so we store center tiles aspects like
      */
-    private String mName;
     private double mLonUL;
     private double mLonLL;
     private double mLonUR;
@@ -40,50 +40,75 @@ public class Tile {
     private double mLatC;
     private double mWidth;
     private double mHeight;
-    private String mChart;
+    private int mRow;
+    private int mCol;
+    private double mZoom;
+    private Epsg900913 mProj;
+    private Preferences mPref;
 
     /**
-     * 
+     * Common function for all tile constructors.
      */
-    public Tile() {
-        mName = "";
-        mLonUL = 0;
-        mLonLL = 0;
-        mLonUR = 0;
-        mLonLR = 0;
-        mLatUL = 0;
-        mLatLL = 0;
-        mLatUR = 0;
-        mLatLR = 0;
-        mLonC = 0;
-        mLatC = 0;
+    private void setup() {
+        mLonUL = mProj.getLonUpperLeft();
+        mLatUL = mProj.getLatUpperLeft();
+        mLonLR = mProj.getLonLowerRight();
+        mLatLR = mProj.getLatLowerRight();
+        mLonLL = mProj.getLonLowerLeft();
+        mLatLL = mProj.getLatLowerLeft();
+        mLonUR = mProj.getLonUpperRight();
+        mLatUR = mProj.getLatUpperRight();
+        mLonC = mProj.getLonCenter();
+        mLatC = mProj.getLatCenter();
+        mRow = mProj.getTiley();
+        mCol = mProj.getTilex();
         mWidth = BitmapHolder.WIDTH;
-        mHeight = BitmapHolder.HEIGHT;
+        mHeight = BitmapHolder.HEIGHT;    	
+    }
+    
+    /**
+     * 
+     * @param t
+     * @param row
+     * @param col
+     */
+    public Tile(Tile t, int col, int row) {
+    	// Make a new tile from a give center tile, at an offset of row/col
+    	Epsg900913 proj = t.getProjection();
+    	int tx = proj.getTilex() + col;
+    	int ty = proj.getTiley() - row; // row increase up
+        mZoom = t.getZoom();
+    	mProj = new Epsg900913(tx, ty, mZoom);
+    	setup();
+        mPref = t.mPref;
     }
 
-    public Tile(
-               Preferences pref,
-               String name, 
-               double lonul, double latul, double lonll, double latll,
-               double lonur, double latur, double lonlr, double latlr,
-               double lonc, double latc,
-               String chart) {
-        mName = name;
-        mLonUL = lonul;
-        mLonLL = lonll;
-        mLonUR = lonur;
-        mLonLR = lonlr;
-        mLatUL = latul;
-        mLatLL = latll;
-        mLatUR = latur;
-        mLatLR = latlr;
-        mLonC = lonc;
-        mLatC = latc;
-        mChart = chart;
-        int opts[] = new int[2];
-        BitmapHolder.getTileOptions(name, pref, opts);
-        mWidth = opts[0];
-        mHeight = opts[1];
+    /**
+     * Get a tile for a particular position for elevation
+     * @param pref
+     * @param lon
+     * @param lat
+     * @param chart
+     */
+    public Tile(Preferences pref, double lon, double lat) {
+        mZoom = 10;
+    	mProj = new Epsg900913(lat, lon, mZoom);
+    	setup();
+        mPref = pref;
+    }
+
+    /**
+     * Get a tile for a particular position
+     * @param pref
+     * @param lon
+     * @param lat
+     * @param chart
+     */
+    public Tile(Preferences pref, double lon, double lat, double zoom) {
+        mZoom = 10 - zoom;
+    	mProj = new Epsg900913(lat, lon, mZoom);
+    	setup();
+        mPref = pref;
     }
 
     /**
@@ -104,14 +129,6 @@ public class Tile {
      */
     public double getPx() {
         return(-((mLonUL - mLonUR)  + (mLonLL - mLonLR)) / (mWidth * 2));
-    }
-    
-    /**
-     * 
-     * @return
-     */
-    public String getChart() {
-        return mChart;
     }
     
     /**
@@ -189,24 +206,19 @@ public class Tile {
     }
 
     /**
-     * @return Name of this tile
+     * @param rowm
+     * @return Neighboring tile based on its row
      */
-    public String getName() {
-        return(mName);
+    private int getNeighborRow(int rowm) {
+    	return mRow + rowm;
     }
     
     /**
-     * @param rowm
      * @param colm
-     * @return Neighboring tile based on its row, col
+     * @return Neighboring tile based on its col
      */
-    public String getNeighbor(int rowm, int colm) {
-        
-        String ret = Helper.incTileName(mName, rowm, colm);
-        if(null == ret) {
-            return("error.jpeg");
-        }
-        return ret;
+    private int getNeighborCol(int colm) {
+        return  mCol + colm;
     }
     
     public double getLatitude() {
@@ -217,4 +229,31 @@ public class Tile {
         return mLonC;
     }
     
+    private Epsg900913 getProjection() {
+    	return mProj;
+    }
+    
+    private double getZoom() {
+    	return mZoom;
+    }
+
+    /**
+     * @return Name of the tile relative to this tile (col, row)
+     */
+    public String getTileNeighbor(int col, int row) {
+    	int coll = getNeighborCol(col);
+    	int rowl = getNeighborRow(row);
+    	// form /tiles/cycle/type/all/zoom/col/row.png
+    	String name = "tiles/" + NetworkHelper.getVersion(mPref.getCycleAdjust()) + "/" + mPref.getChartType() 
+    			+ "/all/" + (int)mZoom +  "/" + coll + "/" + rowl + Preferences.IMAGE_EXTENSION; 
+        return(name);
+    }
+
+    /**
+     * @return Name of the tile
+     */
+    public String getName() {
+    	return getTileNeighbor(0, 0);
+    }
+
 }

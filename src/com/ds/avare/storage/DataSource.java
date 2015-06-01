@@ -23,7 +23,6 @@ import com.ds.avare.place.Destination;
 import com.ds.avare.place.Obstacle;
 import com.ds.avare.place.Runway;
 import com.ds.avare.position.Coordinate;
-import com.ds.avare.shapes.Tile;
 import com.ds.avare.weather.AirSigMet;
 import com.ds.avare.weather.Airep;
 import com.ds.avare.weather.Metar;
@@ -59,36 +58,6 @@ public class DataSource {
         return(dbHelper.isPresent());
     }
     
-    /**
-     * @param lon
-     * @param lat
-     * @param offset
-     * @param p
-     * @return
-     */
-    public Tile findClosest(double lon, double lat, double offset[], double p[], int factor) {
-        return(dbHelper.findClosest(lon, lat, offset, p, factor));
-    }
-
-    /**
-     * @param name
-     * @return
-     */
-    public Tile findTile(String name) {
-        return(dbHelper.findTile(name));
-    }
-
-    /**
-     * @param lon
-     * @param lat
-     * @param offset
-     * @param p
-     * @return
-     */
-    public boolean isWithin(double lon, double lat, double offset[], double p[]) {
-        return(dbHelper.isWithin(lon, lat, offset, p));
-    }
-
     /**
      * @param name
      * @param params
@@ -307,16 +276,6 @@ public class DataSource {
         return dbHelper.findElev(name);
     }
 
-    
-    /**
-     * 
-     * @param lon
-     * @param lat
-     * @return
-     */
-    public Tile findElevTile(double lon, double lat, double offset[], double p[], int factor) {
-        return  dbHelper.findElevTile(lon, lat, offset, p, factor);        
-    }
     
     /**
      * 

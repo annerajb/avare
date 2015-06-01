@@ -29,7 +29,6 @@ import com.ds.avare.place.Obstacle;
 import com.ds.avare.place.Runway;
 import com.ds.avare.position.Coordinate;
 import com.ds.avare.position.Radial;
-import com.ds.avare.shapes.Tile;
 import com.ds.avare.utils.Helper;
 import com.ds.avare.weather.AirSigMet;
 import com.ds.avare.weather.Airep;
@@ -52,19 +51,12 @@ public class DataBaseHelper  {
      * Cache this class to sqlite
      */
     private SQLiteDatabase mDataBase; 
-    private SQLiteDatabase mDataBaseFiles; 
-    private SQLiteDatabase mDataBaseElev; 
     private SQLiteDatabase mDataBaseProcedures; 
     private SQLiteDatabase mDataBasePlates; 
     private SQLiteDatabase mDataBaseGeoPlates; 
     private SQLiteDatabase mDataBaseFuel; 
     private SQLiteDatabase mDataBaseRatings; 
     private SQLiteDatabase mDataBaseWeather; 
-    
-    /*
-     * Center tile info
-     */
-    private Tile mCenterTile;
     
     /*
      * Preferences
@@ -81,8 +73,6 @@ public class DataBaseHelper  {
      * Will serve as a non blocking sem with synchronized statement
      */
     private Integer mUsers;
-    private Integer mUsersFiles;
-    private Integer mUsersElev;
     private Integer mUsersPlates;
     private Integer mUsersGeoPlates;
     private Integer mUsersWeather;
@@ -146,8 +136,6 @@ public class DataBaseHelper  {
     private static final String TABLE_RATINGS = "ratings";
 
 
-    private static final String TILE_NAME = "name";
-    
     /**
      * 
      * @return
@@ -161,8 +149,7 @@ public class DataBaseHelper  {
      */
     public DataBaseHelper(Context context) {
         mPref = new Preferences(context);
-        mCenterTile = null;
-        mUsers = mUsersFiles = mUsersWeather = mUsersElev = mUsersPlates = mUsersGeoPlates = mUsersProcedures = mUsersFuel = mUsersRatings = 0;
+        mUsers = mUsersWeather = mUsersPlates = mUsersGeoPlates = mUsersProcedures = mUsersFuel = mUsersRatings = 0;
         mContext = context;
     }
 
@@ -1541,30 +1528,6 @@ public class DataBaseHelper  {
         closes(cursor);
         return elev;
     }
-
-    /**
-     * If we are within the tile of last query, return just offsets.
-     * Always call this before calling sister function findClosest() which does the 
-     * expensive DB query.
-     * @param lon
-     * @param lat
-     * @param offset
-     * @param p
-     * @return
-     */
-    public boolean isWithin(double lon, double lat, double offset[], double p[]) {
-        if(null == mCenterTile) {
-            return false;
-        }
-        if(mCenterTile.within(lon, lat)) {
-            offset[0] = mCenterTile.getOffsetX(lon);
-            offset[1] = mCenterTile.getOffsetY(lat);
-            p[0] = mCenterTile.getPx();
-            p[1] = mCenterTile.getPy();
-            return true;
-        }
-        return false;
-    }
     
     /**
      * Find the closets tiles to current position
@@ -1859,213 +1822,6 @@ public class DataBaseHelper  {
         return list;
     }
 
-    /**
-     * 
-     * @return
-     */
-    private String getFilesDb() {
-        int db = Integer.parseInt(mPref.getChartType());
-        String dbs[] = mContext.getResources().getStringArray(R.array.ChartDbNames);
-        return dbs[db];
-    }
-
-    /**
-     * 
-     * @param statement
-     * @return
-     */
-    private Cursor doQueryFiles(String statement, String name) {
-        Cursor c = null;
-        
-        String path = mPref.mapsFolder() + "/" + name;
-        if(!(new File(path).exists())) {
-            return null;
-        }
-
-        /*
-         * 
-         */
-        synchronized(mUsersFiles) {
-            if(mDataBaseFiles == null) {
-                mUsersFiles = 0;
-                try {
-                    
-                    mDataBaseFiles = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY | 
-                            SQLiteDatabase.NO_LOCALIZED_COLLATORS);
-                }
-                catch(RuntimeException e) {
-                    mDataBaseFiles = null;
-                }
-            }
-            if(mDataBaseFiles == null) {
-                return c;
-            }
-            mUsersFiles++;
-        }
-        
-        /*
-         * In case we fail
-         */
-        
-        if(mDataBaseFiles == null) {
-            return c;
-        }
-        
-        if(!mDataBaseFiles.isOpen()) {
-            return c;
-        }
-        
-        /*
-         * Find with sqlite query
-         */
-        try {
-               c = mDataBaseFiles.rawQuery(statement, null);
-        }
-        catch (Exception e) {
-            c = null;
-        }
-
-        return c;
-    }
-
-    /**
-     * Close database
-     */
-    private void closesFiles(Cursor c) {
-        
-        try {
-            c.close();
-        }
-        catch (Exception e) {
-            
-        }
-
-        synchronized(mUsersFiles) {
-            mUsersFiles--;
-            if((mDataBaseFiles != null) && (mUsersFiles <= 0)) {
-                try {
-                    mDataBaseFiles.close();
-                }
-                catch (Exception e) {
-                }
-                mDataBaseFiles = null;
-                mUsersFiles = 0;
-            }
-        }
-    }
-
-    
-    /**
-     * Find the closets tiles to current position
-     * @param lon
-     * @param lat
-     * @param offset
-     * @param p
-     * @param names
-     * @return
-     */
-    public Tile findClosest(double lon, double lat, double offset[], double p[], int factor) {
-      
-        String qry =
-                "select * from " + TABLE_FILES + " where " + 
-                "((latul - " + lat + ") > 0) and " +
-                "((latll - " + lat + ") < 0) and " + 
-                "((lonul - " + lon + ") < 0) and " + 
-                "((lonur - " + lon + ") > 0) and " +
-                "level like '%" + factor + "%';";
-        
-        /*
-         * In case we fail
-         */
-        offset[0] = 0;
-        offset[1] = 0;
-        
-        Cursor cursor = doQueryFiles(qry, getFilesDb());
-        
-        try {
-            if(cursor != null) {
-                if(cursor.moveToFirst()) {
-    
-                    /*
-                     * Database only return center tile, we find tiles around it using arithmetic
-                     */
-                    mCenterTile = new Tile(
-                            mPref,
-                            cursor.getString(0),
-                            cursor.getDouble(1),
-                            cursor.getDouble(2),
-                            cursor.getDouble(3),
-                            cursor.getDouble(4),
-                            cursor.getDouble(5),
-                            cursor.getDouble(6),
-                            cursor.getDouble(7),
-                            cursor.getDouble(8),
-                            cursor.getDouble(9),
-                            cursor.getDouble(10),
-                            cursor.getString(11));
-                  
-                    /*
-                     * Position on tile
-                     */
-                    offset[0] = mCenterTile.getOffsetX(lon);
-                    offset[1] = mCenterTile.getOffsetY(lat);
-                    p[0] = mCenterTile.getPx();
-                    p[1] = mCenterTile.getPy();
-                }
-            }
-        }
-        catch (Exception e) {
-        }
-        
-        closesFiles(cursor);
-        return mCenterTile;        
-    }
-
-    
-    /**
-     * 
-     * @param name
-     * @return
-     */
-    public Tile findTile(String name) {
-        String query = "select * from " + TABLE_FILES + " where " + TILE_NAME + "=='" + name +"'";
-        Cursor cursor = doQueryFiles(query, getFilesDb());
-        Tile tile = null;
-        try {
-            if(cursor != null) {
-                if(cursor.moveToFirst()) {
-        
-                    /*
-                     * Database
-                     */
-                    tile = new Tile(
-                            mPref,
-                            cursor.getString(0),
-                            cursor.getDouble(1),
-                            cursor.getDouble(2),
-                            cursor.getDouble(3),
-                            cursor.getDouble(4),
-                            cursor.getDouble(5),
-                            cursor.getDouble(6),
-                            cursor.getDouble(7),
-                            cursor.getDouble(8),
-                            cursor.getDouble(9),
-                            cursor.getDouble(10),
-                            cursor.getString(11));
-                    /*
-                     * Position on tile
-                     */
-                }
-            }
-        }
-        catch (Exception e) {
-        }
-        
-        closesFiles(cursor);
-        return tile;            
-
-    }
-
 
     /**
      * 
@@ -2356,153 +2112,6 @@ public class DataBaseHelper  {
     }
     
     
-    /**
-     * 
-     * @param statement
-     * @return
-     */
-    private Cursor doQueryElev(String statement, String name) {
-        Cursor c = null;
-        
-        String path = mPref.mapsFolder() + "/" + name;
-        if(!(new File(path).exists())) {
-            return null;
-        }
-
-        /*
-         * 
-         */
-        synchronized(mUsersElev) {
-            if(mDataBaseElev == null) {
-                mUsersElev = 0;
-                try {
-                    
-                    mDataBaseElev = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY | 
-                            SQLiteDatabase.NO_LOCALIZED_COLLATORS);
-                }
-                catch(RuntimeException e) {
-                    mDataBaseElev = null;
-                }
-            }
-            if(mDataBaseElev == null) {
-                return c;
-            }
-            mUsersElev++;
-        }
-        
-        /*
-         * In case we fail
-         */
-        
-        if(mDataBaseElev == null) {
-            return c;
-        }
-        
-        if(!mDataBaseElev.isOpen()) {
-            return c;
-        }
-        
-        /*
-         * Find with sqlite query
-         */
-        try {
-               c = mDataBaseElev.rawQuery(statement, null);
-        }
-        catch (Exception e) {
-            c = null;
-        }
-
-        return c;
-    }
-
-    /**
-     * Close database
-     */
-    private void closesElev(Cursor c) {
-
-        try {
-            if(null != c) {
-                c.close();
-            }
-        }
-        catch (Exception e) {
-            
-        }
-
-        synchronized(mUsersElev) {
-            mUsersElev--;
-            if((mDataBaseElev != null) && (mUsersElev <= 0)) {
-                try {
-                    mDataBaseElev.close();
-                }
-                catch (Exception e) {
-                }
-                mDataBaseElev = null;
-                mUsersElev = 0;
-            }
-        }
-    }
-
-    /**
-     * Find the closets tiles to current position
-     * @param lon
-     * @param lat
-     * @param offset
-     * @param p
-     * @param names
-     * @return
-     */
-    public Tile findElevTile(double lon, double lat, double offset[], double p[], int factor) {
-      
-        String qry =
-                "select * from " + TABLE_FILES + " where " + 
-                "((latul - " + lat + ") > 0) and " +
-                "((latll - " + lat + ") < 0) and " + 
-                "((lonul - " + lon + ") < 0) and " + 
-                "((lonur - " + lon + ") > 0) and " +
-                "level like '%" + factor + "%';"; /* Get highest level tile for elev */
-        
-        Tile t = null;
-        Cursor cursor = doQueryElev(qry, "maps.elv.db");
-        
-        try {
-            if(cursor != null) {
-                if(cursor.moveToFirst()) {
-    
-                    /*
-                     * Database only return center tile, we find tiles around it using arithmetic
-                     */
-                    t = new Tile(
-                            mPref,
-                            cursor.getString(0),
-                            cursor.getDouble(1),
-                            cursor.getDouble(2),
-                            cursor.getDouble(3),
-                            cursor.getDouble(4),
-                            cursor.getDouble(5),
-                            cursor.getDouble(6),
-                            cursor.getDouble(7),
-                            cursor.getDouble(8),
-                            cursor.getDouble(9),
-                            cursor.getDouble(10),
-                            cursor.getString(11));
-                    /*
-                     * Position on tile
-                     */
-                    offset[0] = t.getOffsetTopX(lon);
-                    offset[1] = t.getOffsetTopY(lat);
-                    p[0] = t.getPx();
-                    p[1] = t.getPy();
-                }
-            }
-        }
-        catch (Exception e) {
-        }
-        
-        closesElev(cursor);
-        return t;        
-    }
-
 
     /**
      * 
