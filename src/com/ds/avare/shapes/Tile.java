@@ -284,9 +284,9 @@ public class Tile {
     public String getTileNeighbor(int col, int row) {
     	int coll = getNeighborCol(col);
     	int rowl = getNeighborRow(row);
-    	// form /tiles/cycle/type/all/zoom/col/row.png
+    	// form /tiles/cycle/type/zoom/col/row.jpg
     	String name = "tiles/" + mCycle + "/" + mChartIndex 
-    			+ "/all/" + (int)mZoom +  "/" + coll + "/" + rowl + Preferences.IMAGE_EXTENSION_TILE; 
+    			+ "/" + (int)mZoom +  "/" + coll + "/" + rowl + Preferences.IMAGE_EXTENSION_TILE; 
         return(name);
     }
 
