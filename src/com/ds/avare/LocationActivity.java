@@ -544,7 +544,7 @@ public class LocationActivity extends Activity implements Observer {
                 /*
                  * Contrast bars only in terrain view
                  */
-                if(mPref.getChartType().equals("5")) {
+                if(mPref.getChartType().equals("6")) {
                     mBar.setVisibility(View.VISIBLE);
                 }
                 else {
