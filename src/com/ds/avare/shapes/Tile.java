@@ -51,6 +51,7 @@ public class Tile {
     private int mRow;
     private int mCol;
     private double mZoom;
+    private String mExtension;
     private Epsg900913 mProj;
     private String mChartIndex;
     private String mCycle;
@@ -85,6 +86,7 @@ public class Tile {
     public Tile(Context ctx, Preferences pref, Tile t, int col, int row) {
     	mChartIndex = t.mChartIndex;
         mZoom = t.getZoom();
+        mExtension = t.getExtension();
     	// Make a new tile from a given center tile, at an offset of row/col
     	Epsg900913 proj = t.getProjection();
     	int tx = proj.getTilex() + col;
@@ -110,6 +112,12 @@ public class Tile {
     	 */
         mZoom = Integer.valueOf(ctx.getResources().getStringArray(R.array.ChartMaxZooms)
         		[Integer.valueOf(mChartIndex)]) - zoom;
+        /*
+         * Extension varies for chart types because some chart have better compression with 
+         * one or other type of standard
+         */
+        mExtension = ctx.getResources().getStringArray(R.array.ChartFileExtesion)
+        		[Integer.valueOf(mChartIndex)];
     	mProj = new Epsg900913(lat, lon, mZoom);
     	setup(pref);
     }
@@ -130,6 +138,12 @@ public class Tile {
     	 */
         mZoom = Integer.valueOf(ctx.getResources().getStringArray(R.array.ChartMaxZooms)
         		[Integer.valueOf(mChartIndex)]); // use max zoom for elevation tiles used for AGL
+        /*
+         * Extension varies for chart types because some chart have better compression with 
+         * one or other type of standard
+         */
+        mExtension = ctx.getResources().getStringArray(R.array.ChartFileExtesion)
+        		[Integer.valueOf(mChartIndex)];
     	mProj = new Epsg900913(lat, lon, mZoom);
     	setup(pref);
     }
@@ -279,6 +293,14 @@ public class Tile {
     }
 
     /**
+     * 
+     * @return
+     */
+    private String getExtension() {
+    	return mExtension;
+    }
+
+    /**
      * @return Name of the tile relative to this tile (col, row)
      */
     public String getTileNeighbor(int col, int row) {
@@ -286,7 +308,7 @@ public class Tile {
     	int rowl = getNeighborRow(row);
     	// form /tiles/cycle/type/zoom/col/row.jpg
     	String name = "tiles/" + mCycle + "/" + mChartIndex 
-    			+ "/" + (int)mZoom +  "/" + coll + "/" + rowl + Preferences.IMAGE_EXTENSION_TILE; 
+    			+ "/" + (int)mZoom +  "/" + coll + "/" + rowl + mExtension; 
         return(name);
     }
 
