@@ -325,8 +325,7 @@ public class ChartsDownloadActivity extends Activity {
         }
         
         mDelete = new Delete(mHandler);
-        mDelete.start((new Preferences(getApplicationContext())).mapsFolder(), mName,
-                mService.getDBResource());
+        mDelete.start((new Preferences(getApplicationContext())).mapsFolder(), mName);
         
         mProgressDialog = new ProgressDialog(ChartsDownloadActivity.this);
         mProgressDialog.setIndeterminate(false);

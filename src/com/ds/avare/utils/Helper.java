@@ -534,8 +534,7 @@ public class Helper {
             
         }
     }
-    
-    
+
     /**
      * 
      * @param heading

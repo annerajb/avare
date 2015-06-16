@@ -171,15 +171,6 @@ public class DataSource {
     /**
      * 
      * @param name
-     * @return
-     */
-    public LinkedList<String> findFilesToDelete(String name, String path) {
-        return dbHelper.findFilesToDelete(name, path);        
-    }
-
-    /**
-     * 
-     * @param name
      * @param type
      * @return
      */
