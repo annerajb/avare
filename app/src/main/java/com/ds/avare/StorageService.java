@@ -1123,7 +1123,7 @@ public class StorageService extends Service {
 
             Notification notification = new NotificationCompat.Builder(this)
                     .setContentTitle("Avare Flight")
-                    .setTicker("Getting GPS Signal")
+                   // .setTicker("Getting GPS Signal")
                     .setContentText("getting gps")
                     .setSmallIcon(R.drawable.remove)
                     .setLargeIcon(Bitmap.createScaledBitmap(icon, 128, 128, false))
