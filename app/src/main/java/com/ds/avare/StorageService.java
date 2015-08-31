@@ -54,14 +54,21 @@ import com.ds.avare.utils.ShadowedText;
 import com.ds.avare.weather.AdsbWeatherCache;
 import com.ds.avare.weather.InternetWeatherCache;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationManager;
 import android.media.MediaScannerConnection;
 import android.os.Binder;
 import android.os.IBinder;
+import android.support.annotation.Nullable;
+import android.support.v4.app.NotificationCompat;
 
 import java.net.URI;
 
@@ -274,6 +281,7 @@ public class StorageService extends Service {
     public boolean onUnbind(Intent intent) {
         return true;
     }
+
 
     /* (non-Javadoc)
      * @see android.app.Service#onCreate()
@@ -1072,7 +1080,52 @@ public class StorageService extends Service {
     public double getThreshold() {
        return mThreshold; 
     }
-    
+    public static final String CLOSE_ACTION = "close";
+
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent.getAction() == null || intent.getAction().equals("start") )
+        {
+            // Log.i(LOG_TAG, "Received Start Foreground Intent ");
+            Intent notificationIntent = new Intent(this, MainActivity.class);
+            notificationIntent.setAction("main");
+            notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,notificationIntent, 0);
+
+            Intent notificationCloseIntent = new Intent(this, AirportActivity.class)
+                    .setFlags( Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .setAction(CLOSE_ACTION);
+            PendingIntent pendingCloseIntent = PendingIntent.getActivity(this, 0,notificationCloseIntent,0);
+            Bitmap icon = BitmapFactory.decodeResource(getResources(), R.drawable.aircraft);
+
+            Notification notification = new NotificationCompat.Builder(this)
+                    .setContentTitle("Avare Flight")
+                    .setTicker("Getting GPS Signal")
+                    .setContentText("getting gps")
+                    .setSmallIcon(R.drawable.remove)
+                    .setLargeIcon(Bitmap.createScaledBitmap(icon, 128, 128, false))
+                    .setContentIntent(pendingIntent)
+                    .setOngoing(true)
+                    .addAction(android.R.drawable.ic_menu_close_clear_cancel,"close"
+                            , pendingCloseIntent)//getString(R.string.action_exit)
+                    //.addAction(android.R.drawable.ic_media_previous,"Previous", ppreviousIntent)
+                    //.addAction(android.R.drawable.ic_media_play, "Play",pplayIntent)
+                    //.addAction(android.R.drawable.ic_media_next, "Next",pnextIntent)
+                    .build();
+            startForeground(101,notification);
+        /*} else if (intent.getAction().equals(Constants.ACTION.PREV_ACTION)) {
+            // Log.i(LOG_TAG, "Clicked Previous");
+        } else if (intent.getAction().equals(Constants.ACTION.PLAY_ACTION)) {
+            // Log.i(LOG_TAG, "Clicked Play");
+        } else if (intent.getAction().equals(Constants.ACTION.NEXT_ACTION)) {
+            //   Log.i(LOG_TAG, "Clicked Next");
+*/
+        } else if (intent.getAction().equals(CLOSE_ACTION)) {
+            //Log.i(LOG_TAG, "Received Stop Foreground Intent");
+            stopForeground(true);
+            stopSelf();
+        }
+        return START_STICKY;
+    }
     /**
      * 
      * @return

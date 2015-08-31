@@ -118,7 +118,12 @@ public class AirportActivity extends Activity implements Observer {
         
         mDestString = "<" + getApplicationContext().getString(R.string.Destination) + ">";
         mNearString = "<" + getApplicationContext().getString(R.string.Nearest) + ">";    
-        
+         /*
+             * Initialize the lists
+             */
+        mListViews = new ArrayList<String>();
+        mListViews.add(getApplicationContext().getString(R.string.AFD));
+
         /*
          * Get views from XML
          */
@@ -489,12 +494,7 @@ public class AirportActivity extends Activity implements Observer {
 
             mService.registerGpsListener(mGpsInfc);
 
-            /*
-             * Initialize the lists
-             */
-            mListViews = new ArrayList<String>();
-            mListViews.add(getApplicationContext().getString(R.string.AFD));
-            
+
             mListAirports = new ArrayList<String>();
             mListAirports.add(mDestString);
             mListAirports.add(mNearString);
@@ -602,9 +602,11 @@ public class AirportActivity extends Activity implements Observer {
         /*
          * Registering our receiver
          * Bind now.
-         */        
+         */
         Intent intent = new Intent(this, StorageService.class);
-        getApplicationContext().bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        //intent.setAction("start");
+        getApplicationContext().startService(intent);
+        getApplicationContext().bindService( intent,mConnection, Context.BIND_AUTO_CREATE);
 
         Helper.setOrientationAndOn(this);
     }
