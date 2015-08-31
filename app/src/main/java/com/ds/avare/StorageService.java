@@ -11,10 +11,14 @@ Redistribution and use in source and binary forms, with or without modification,
 */
 package com.ds.avare;
 
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Timer;
-import java.util.TimerTask;
+import android.app.Service;
+import android.content.Intent;
+import android.location.GpsStatus;
+import android.location.Location;
+import android.location.LocationManager;
+import android.media.MediaScannerConnection;
+import android.os.Binder;
+import android.os.IBinder;
 
 import com.ds.avare.adsb.TrafficCache;
 import com.ds.avare.cap.DrawCapLines;
@@ -22,7 +26,9 @@ import com.ds.avare.externalFlightPlan.ExternalPlanMgr;
 import com.ds.avare.flight.Checklist;
 import com.ds.avare.flight.FlightStatus;
 import com.ds.avare.flightLog.KMLRecorder;
-import com.ds.avare.gps.*;
+import com.ds.avare.gps.Gps;
+import com.ds.avare.gps.GpsInterface;
+import com.ds.avare.gps.GpsParams;
 import com.ds.avare.instruments.CDI;
 import com.ds.avare.instruments.DistanceRings;
 import com.ds.avare.instruments.EdgeDistanceTape;
@@ -39,8 +45,9 @@ import com.ds.avare.position.Movement;
 import com.ds.avare.position.Pan;
 import com.ds.avare.shapes.Draw;
 import com.ds.avare.shapes.ElevationTile;
+import com.ds.avare.shapes.MetarLayer;
 import com.ds.avare.shapes.PixelDraw;
-import com.ds.avare.shapes.Radar;
+import com.ds.avare.shapes.RadarLayer;
 import com.ds.avare.shapes.TFRShape;
 import com.ds.avare.shapes.Tile;
 import com.ds.avare.shapes.TileMap;
@@ -71,6 +78,10 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 
 import java.net.URI;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * @author zkhan
@@ -113,7 +124,7 @@ public class StorageService extends Service {
     
     private TrafficCache mTrafficCache;
     
-    private Radar mRadar;
+    private RadarLayer mRadarLayer;
     
     private String mLastPlateAirport;
     private int mLastPlateIndex;
@@ -127,6 +138,8 @@ public class StorageService extends Service {
     private boolean mDownloading;
     
     private LinkedList<Checklist> mCheckLists;
+
+    private MetarLayer mMetarLayer;
     
     /**
      * GPS
@@ -345,11 +358,14 @@ public class StorageService extends Service {
         mKMLRecorder = new KMLRecorder();
         
         /*
-         * Internet radar
+         * Internet nexrad
          */
-        mRadar = new Radar(getApplicationContext());
+        mRadarLayer = new RadarLayer(getApplicationContext());
 
-        mRadar.parse();
+        /*
+         * Internet metar
+         */
+        mMetarLayer = new MetarLayer(getApplicationContext());
 
         /*
          * Start the odometer now
@@ -699,7 +715,7 @@ public class StorageService extends Service {
 
     
     /**
-     * @param m
+     * @param p
      */
     public void setPan(Pan p) {
         mPan = p;
@@ -757,7 +773,15 @@ public class StorageService extends Service {
             mDiagramBitmap = new BitmapHolder(name);            
         }
     }
-    
+
+    /**
+     *
+     * @return
+     */
+    public MetarLayer getMetarLayer() {
+        return mMetarLayer;
+    }
+
     /**
      * 
      * @return
@@ -962,8 +986,8 @@ public class StorageService extends Service {
      * 
      * @return
      */
-    public Radar getRadar() {
-       return mRadar; 
+    public RadarLayer getRadarLayer() {
+       return mRadarLayer;
     }
     
     /**
@@ -978,14 +1002,14 @@ public class StorageService extends Service {
      * 
      */
     public void deleteInternetWeatherCache() {
-        mInternetWeatherCache = new InternetWeatherCache();        
+        mInternetWeatherCache = new InternetWeatherCache();
     }
     
     /**
      * 
      */
     public void deleteRadar() {
-        mRadar.flush();        
+        mRadarLayer.flush();
     }
     
     /**
@@ -1091,7 +1115,7 @@ public class StorageService extends Service {
             notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,notificationIntent, 0);
 
-            Intent notificationCloseIntent = new Intent(this, AirportActivity.class)
+            Intent notificationCloseIntent = new Intent(this, MainActivity.class)
                     .setFlags( Intent.FLAG_ACTIVITY_SINGLE_TOP)
                     .setAction(CLOSE_ACTION);
             PendingIntent pendingCloseIntent = PendingIntent.getActivity(this, 0,notificationCloseIntent,0);
