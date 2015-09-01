@@ -16,8 +16,10 @@ package com.ds.avare;
 import com.ds.avare.storage.Preferences;
 import com.ds.avare.utils.Helper;
 
+import android.app.AlertDialog;
 import android.app.TabActivity;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -139,9 +141,27 @@ public class MainActivity extends TabActivity {
         if(0 != (tabItems & (1 << tabTools))) {
         	setupTab(new TextView(this), getString(R.string.Tools), new Intent(this, SatelliteActivity.class), getIntent());
         }
-        
+
     }
-    
+    private void showCloseDialog()
+    {
+        AlertDialog.Builder builder1 = new AlertDialog.Builder(getCurrentActivity());
+        builder1.setMessage("Would you like to close the App?");
+        builder1.setCancelable(true);
+        builder1.setPositiveButton("Yes",
+                                   new DialogInterface.OnClickListener() {
+                                       public void onClick(DialogInterface dialog, int id) {
+                                           dialog.cancel();
+                                       }
+                                   });
+        builder1.setNegativeButton("No",
+                                   new DialogInterface.OnClickListener() {
+                                       public void onClick(DialogInterface dialog, int id) {
+                                           dialog.cancel();
+                                       }
+                                   });
+        builder1.show();
+    }
     /**
      * 
      * @param view
@@ -180,6 +200,12 @@ public class MainActivity extends TabActivity {
     @Override
     public void onResume() {
         super.onResume();
+        //handle intent
+        Intent incomingIntent = getIntent();
+        if(incomingIntent.getAction().equals(StorageService.CLOSE_ACTION))
+        {
+            showCloseDialog();
+        }
         Helper.setOrientationAndOn(this);
     }
 

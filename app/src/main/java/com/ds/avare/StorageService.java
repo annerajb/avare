@@ -1113,23 +1113,23 @@ public class StorageService extends Service {
             Intent notificationIntent = new Intent(this, MainActivity.class);
             notificationIntent.setAction("main");
             notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,notificationIntent, 0);
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 1,notificationIntent, 0);
 
             Intent notificationCloseIntent = new Intent(this, MainActivity.class)
-                    .setFlags( Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .setFlags( Intent.FLAG_ACTIVITY_NEW_TASK)
                     .setAction(CLOSE_ACTION);
-            PendingIntent pendingCloseIntent = PendingIntent.getActivity(this, 0,notificationCloseIntent,0);
-            Bitmap icon = BitmapFactory.decodeResource(getResources(), R.drawable.aircraft);
+            PendingIntent pendingCloseIntent = PendingIntent.getActivity(this, 2,notificationCloseIntent,PendingIntent.FLAG_CANCEL_CURRENT);
 
+            Bitmap icon = BitmapFactory.decodeResource(getResources(), R.drawable.aircraft);
             Notification notification = new NotificationCompat.Builder(this)
                     .setContentTitle("Avare Flight")
                    // .setTicker("Getting GPS Signal")
-                    .setContentText("getting gps")
+                    .setContentText("Running")
                     .setSmallIcon(R.drawable.remove)
                     .setLargeIcon(Bitmap.createScaledBitmap(icon, 128, 128, false))
                     .setContentIntent(pendingIntent)
                     .setOngoing(true)
-                    .addAction(android.R.drawable.ic_menu_close_clear_cancel,"close"
+                    .addAction(android.R.drawable.ic_menu_close_clear_cancel,CLOSE_ACTION
                             , pendingCloseIntent)//getString(R.string.action_exit)
                     //.addAction(android.R.drawable.ic_media_previous,"Previous", ppreviousIntent)
                     //.addAction(android.R.drawable.ic_media_play, "Play",pplayIntent)
