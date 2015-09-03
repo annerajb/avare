@@ -1107,6 +1107,10 @@ public class StorageService extends Service {
     public static final String CLOSE_ACTION = "close";
 
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if(intent == null)
+        {
+            return START_NOT_STICKY;
+        }
         if (intent.getAction() == null || intent.getAction().equals("start") )
         {
             // Log.i(LOG_TAG, "Received Start Foreground Intent ");
@@ -1136,9 +1140,9 @@ public class StorageService extends Service {
                     //.addAction(android.R.drawable.ic_media_next, "Next",pnextIntent)
                     .build();
             startForeground(101,notification);
-        /*} else if (intent.getAction().equals(Constants.ACTION.PREV_ACTION)) {
+         /*} else if (intent.getAction().equals(Constants.ACTION.PREV_ACTION)) {
             // Log.i(LOG_TAG, "Clicked Previous");
-        } else if (intent.getAction().equals(Constants.ACTION.PLAY_ACTION)) {
+       } else if (intent.getAction().equals(Constants.ACTION.PLAY_ACTION)) {
             // Log.i(LOG_TAG, "Clicked Play");
         } else if (intent.getAction().equals(Constants.ACTION.NEXT_ACTION)) {
             //   Log.i(LOG_TAG, "Clicked Next");

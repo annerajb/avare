@@ -32,7 +32,10 @@ import android.widget.HorizontalScrollView;
 import android.widget.TabHost;
 import android.widget.TabHost.TabSpec;
 import android.widget.TextView;
- 
+
+import static android.os.Process.killProcess;
+import static android.os.Process.myPid;
+
 /**
  * 
  * @author zkhan
@@ -148,15 +151,18 @@ public class MainActivity extends TabActivity {
         AlertDialog.Builder builder1 = new AlertDialog.Builder(getCurrentActivity());
         builder1.setMessage("Would you like to close the App?");
         builder1.setCancelable(true);
-        builder1.setPositiveButton("Yes",
-                                   new DialogInterface.OnClickListener() {
-                                       public void onClick(DialogInterface dialog, int id) {
+        builder1.setPositiveButton("Yes", new DialogInterface.OnClickListener()
+                                   {
+                                       public void onClick(DialogInterface dialog, int id)
+                                       {
                                            dialog.cancel();
+                                           killProcess(myPid());
                                        }
                                    });
-        builder1.setNegativeButton("No",
-                                   new DialogInterface.OnClickListener() {
-                                       public void onClick(DialogInterface dialog, int id) {
+        builder1.setNegativeButton("No", new DialogInterface.OnClickListener()
+                                   {
+                                       public void onClick(DialogInterface dialog, int id)
+                                       {
                                            dialog.cancel();
                                        }
                                    });
