@@ -1114,9 +1114,10 @@ public class StorageService extends Service {
         if (intent.getAction() == null || intent.getAction().equals("start") )
         {
             // Log.i(LOG_TAG, "Received Start Foreground Intent ");
-            Intent notificationIntent = new Intent(this, MainActivity.class);
-            notificationIntent.setAction("main");
-            notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            final Intent notificationIntent = new Intent(this, MainActivity.class);
+            notificationIntent.setAction(Intent.ACTION_MAIN);
+            notificationIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+            //notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             PendingIntent pendingIntent = PendingIntent.getActivity(this, 1,notificationIntent, 0);
 
             Intent notificationCloseIntent = new Intent(this, MainActivity.class)
