@@ -12,15 +12,14 @@ Redistribution and use in source and binary forms, with or without modification,
 
 package com.ds.avare.shapes;
 
-import com.ds.avare.storage.Preferences;
-import com.ds.avare.utils.BitmapHolder;
-
 import android.content.Context;
-import android.graphics.Color;
+import android.support.v4.util.LruCache;
 import android.view.Display;
 import android.view.WindowManager;
 
-import java.util.HashMap;
+import com.ds.avare.storage.Preferences;
+import com.ds.avare.utils.BitmapHolder;
+
 
 
 /**
@@ -40,15 +39,17 @@ public class TileMap {
     private int mXtiles;
     private int mYtiles;
     
-    private int numTiles;
-    private int numTilesMax;
-    
-    private BitmapHolder[] mBitmapCache;
-    private BitmapHolder[] mFreeList;
+    private int mNumTiles;
+
+    private int mNumShowing;
+
+    LruCache<String, BitmapHolder> mBitmapCache;
+
+    private static final int SIZE =  BitmapHolder.HEIGHT * BitmapHolder.WIDTH * 2; // RGB565 = 2
+
     /**
      * 
-     * @param x
-     * @param y
+     * @param context
      */
     public TileMap(Context context) {
         /*
@@ -61,15 +62,31 @@ public class TileMap {
         int[] tilesdim = mPref.getTilesNumber();
         mXtiles = tilesdim[0];
         mYtiles = tilesdim[1];
-        numTiles = mXtiles * mYtiles;
-        numTilesMax = mXtiles * mYtiles;
-        mapA = new BitmapHolder[numTiles];
-        mapB = new BitmapHolder[numTiles];
-        mBitmapCache = new BitmapHolder[numTilesMax];
-        mFreeList = new BitmapHolder[numTilesMax];
-        for(int tile = 0; tile < numTilesMax; tile++) {
-            mBitmapCache[tile] = new BitmapHolder();
-        }
+        mNumShowing = 0;
+        mNumTiles = mXtiles * mYtiles;
+        mapA = new BitmapHolder[mNumTiles];
+        mapB = new BitmapHolder[mNumTiles];
+        mBitmapCache = new LruCache<String, BitmapHolder>(SIZE * (mNumTiles + getOverhead()))  {
+
+            @Override
+            protected int sizeOf(String key, BitmapHolder value) {
+                return SIZE;
+            }
+
+            @Override
+            protected void entryRemoved (boolean evicted, String key, BitmapHolder oldValue, BitmapHolder newValue) {
+                oldValue.recycle();
+            }
+        };
+    }
+
+    /**
+     * Overhead needed for smooth tile switching, 1x becomes a double buffer.
+     * Warning: Liberal overhead could cause OOM exception because we are talking about pictures of size 512x512.
+     * @return
+     */
+    public int getOverhead() {
+        return (int)(0.2 * (double)mNumTiles); // 20% overhead
     }
 
     /**
@@ -79,19 +96,15 @@ public class TileMap {
      * @return
      */
     public void clear() {
+        mBitmapCache.evictAll();
+        mNumShowing = 0;
     }
 
     /*
      * Force a reload.
      */
     public void forceReload() {
-        for(int tile = 0; tile < numTilesMax; tile++) {
-            if(mBitmapCache[tile] != null) {
-                if(mBitmapCache[tile].getName() != null) {
-                    mBitmapCache[tile].drawInBitmap(null, null, 0, 0);
-                }
-            }
-        }
+        clear();
     }
 
     /**
@@ -99,121 +112,53 @@ public class TileMap {
      * When a new string of names are available for a new region, reload
      * will load and reuse older tiles.
      * 
-     * @param name
+     * @param tileNames
      * @return
-     * @throws InterruptedException 
      */
-    public boolean reload(String[] tileNames) throws InterruptedException {
-    	HashMap<String,BitmapHolder> hm = new HashMap<String,BitmapHolder> ();
-    	int freeIndex = 0;
-        mapB = new BitmapHolder[numTiles];
-        /* 
-         * Initial setup, mark all as candidates for the freelist.
-         * Next section will mark the used ones.
-         * Also populate the hashmap for fast name->BitmapHolder mapping
-         */
-        
-        for (int tilen = 0 ; tilen < numTilesMax ; tilen++ ) {
-        	mFreeList[tilen] = null;
-        	if (mBitmapCache[tilen] != null) {
-        		mBitmapCache[tilen].setFree(true);
-        		if (mBitmapCache[tilen].getName() != null ){
-        			hm.put(mBitmapCache[tilen].getName(), mBitmapCache[tilen]);
-        		}
-        	}
-        }
-        /*
-         * For all tiles that will be re-used, find from cache.
-         */
-        for(int tilen = 0; tilen < numTiles; tilen++) {
-        	/* 
-        	 * Setup for later mark as not free.
-        	 */
-            mapB[tilen] = hm.get(tileNames[tilen]);
-            if (mapB[tilen] != null) {
-            	mapB[tilen].setFree(false);
-            }
-        }
-        /*
-         * Build the list of free tiles based on the flags
-         */
-        for (int tilen = 0 ; tilen < numTilesMax ; tilen++ ) {
-        	if (mBitmapCache[tilen] != null && mBitmapCache[tilen].getFree()) {
-        		mFreeList[freeIndex] = mBitmapCache[tilen];
-        		freeIndex++;
-        	}
-        }
+    public void reload(String[] tileNames) {
 
-        // tiles missing? if any tiles are showing, do not draw chart shapes
-        boolean showing = false;
+        // how many tiles missing?
+        int showing = 0;
 
         /*
          * For all tiles that will be loaded.
          */
-        for(int tilen = 0; tilen < numTiles; tilen++) {
+        for(int tilen = 0; tilen < mNumTiles; tilen++) {
 
-            // moved beyond view area, do again
-            if(Thread.interrupted()) {
-                throw new InterruptedException();
-            }
-            
-            if(null == tileNames[tilen]) {
-                /*
-                 * Move beyond the map? cannot do much
-                 */
-                continue;
-            }
-            
-            if(null != mapB[tilen]) {
-                /*
-                 * This is reused
-                 */
-                showing |= mapB[tilen].getFound();
-                continue;
-            }
+            mapB[tilen] = mBitmapCache.get(tileNames[tilen]);
 
-            /*
-             * Pull a free bitmap off the list
-             */
-            BitmapHolder h = null;
-            if (freeIndex > 0 ) {
-            	freeIndex--;
-            	h = mFreeList[freeIndex];
+            if(mapB[tilen] == null) {
+                mapB[tilen] = new BitmapHolder(mContext, mPref, tileNames[tilen], 1);
+                if (mapB[tilen].getBitmap() != null) {
+                    synchronized (mBitmapCache) {
+                        if (mBitmapCache.get(tileNames[tilen]) == null) {
+                            mBitmapCache.put(tileNames[tilen], mapB[tilen]);
+                        }
+                    }
+                    showing++;
+                }
             }
-            if(h != null) {
-                BitmapHolder b = new BitmapHolder(mContext, mPref, tileNames[tilen], 1);
-                if(b.getBitmap() == null) {
-                    h.setFound(false);
-                }
-                else {
-                    h.setFound(true);
-                }
-                h.getBitmap().eraseColor(Color.GRAY);
-                h.drawInBitmap(b, tileNames[tilen], 0, 0);
-                b.recycle();
-                b = null;
-                mapB[tilen] = h;
-                showing |= mapB[tilen].getFound();
+            else {
+                showing++;
             }
         }
-        return showing;
+        mNumShowing = showing;
     }
 
     /**
      * Call this from UI thread so that tiles can be flipped without tear
      */
     public void flip() {
-        mapA = mapB;
+        for(int tilen = 0; tilen < mNumTiles; tilen++) {
+            mapA[tilen] = mapB[tilen];
+        }
     }
     
     /**
      * 
      */
     public void recycleBitmaps() {
-        for(int tile = 0; tile < numTilesMax; tile++) {
-            mBitmapCache[tile].recycle();
-            mBitmapCache[tile] = null;
-        }
+        clear();
     }
     
     /**
@@ -221,7 +166,7 @@ public class TileMap {
      * @return
      */
     public int getTilesNum() {
-        return numTiles;
+        return mNumTiles;
     }
     
     /**
@@ -275,8 +220,17 @@ public class TileMap {
                 int tmp = mXtiles;
                 mXtiles = mYtiles;
                 mYtiles = tmp;
-            }            
+            }
         }
+    }
+
+
+    /**
+     * Lets call chart showing partial when tiles showing are below a threshold
+     * @return
+     */
+    public boolean isChartPartial() {
+        return mNumShowing <= 0;
     }
 
 }
